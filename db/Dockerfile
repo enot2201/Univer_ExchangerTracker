@@ -1,0 +1,7 @@
+FROM postgres:latest
+
+
+ENV POSTGRES_PASSWORD=8521946733
+ENV POSTGRES_DB=ratetracker
+
+

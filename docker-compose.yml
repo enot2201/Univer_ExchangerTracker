@@ -1,0 +1,81 @@
+services:
+  db:
+    image: rate-tracker-database
+    container_name: database
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    ports:
+      - "5432:5432"
+    networks:
+      - rate-tracker-network
+
+  rabbit:
+    image: broker-rabbit-rate-tracker
+    container_name: rabbitmq
+    build:
+      context: ./rabbit
+      dockerfile: Dockerfile
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - rate-tracker-network
+
+  reddis:
+    image: cache-reddis-rate-tracker
+    container_name: cahce
+    build:
+      context: ./cahce
+      dockerfile: Dockerfile
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+    networks:
+      - rate-tracker-network
+
+  app:
+    build: .
+    volumes:
+      - .:/app
+    command: python main.py & python startup_parser_service.py
+    environment:
+      - DB_HOST=database
+      - BROKER_URL=amqp://guest:guest@rabbitmq/
+      - REDIS_URL=reddis
+    networks:
+      - rate-tracker-network
+    ports:
+      - "8000:8000"
+    depends_on:
+      reddis:
+        condition: service_started
+      db:
+        condition: service_started
+      rabbit:
+        condition: service_started
+
+  parser_app:
+    build: .
+    volumes:
+      - .:/app
+    command: python startup_parser_service.py
+    environment:
+      - DB_HOST=database
+      - BROKER_URL=amqp://guest:guest@rabbitmq/
+      - REDIS_URL=reddis
+    networks:
+      - rate-tracker-network
+    depends_on:
+      app:
+        condition: service_started
+
+
+volumes:
+  redis_data:
+
+networks:
+  rate-tracker-network:
+    driver: bridge
